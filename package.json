@@ -28,7 +28,9 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@types/dotenv": "^8.2.0",
     "@types/glob": "^8.1.0",
+    "@types/lodash": "^4.14.191",
     "@types/mocha": "^10.0.1",
     "@types/node": "16.x",
     "@types/vscode": "^1.76.0",
@@ -38,7 +40,11 @@
     "eslint": "^8.34.0",
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
-    "typescript": "^4.9.5",
-    "openai": "^3.2.1"
+    "openai": "^3.2.1",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "lodash": "^4.17.21"
   }
 }
