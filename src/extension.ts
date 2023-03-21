@@ -1,77 +1,56 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import axios from 'axios';
+import { getNamingSuggestions } from './chatgpt';
+import * as _ from 'lodash';
 
-const openaiEndpoint =
-  'https://api.openai.com/v1/engines/davinci-codex/completions';
-const openaiApiKey = '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';
-
-async function getNamingSuggestions(input: string): Promise<string[]> {
-  const prompt = `Naming suggestions for "${input}":`;
-  const response = await axios.post(
-    openaiEndpoint,
-    {
-      prompt: prompt,
-      max_tokens: 50,
-      n: 1,
-      stop: null,
-      temperature: 0.7,
-    },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-    }
-  );
-
-  const suggestions = response.data.choices[0].text
-    .split(',')
-    .map((s) => s.trim());
-  return suggestions;
-}
-
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand(
     'extension.getNamingSuggestions',
     async () => {
+      // コマンドパレットから入力を受け取る
       const input = await vscode.window.showInputBox({
-        prompt: '命名候補を取得したい言葉を入力してください',
+        prompt: '日本語テキストを入力してください',
       });
-
       if (!input) {
         return;
       }
 
-      try {
-        const suggestions = await getNamingSuggestions(input);
+      // ChatGPT APIを使って命名候補を取得する
+      const suggestions = await getNamingSuggestions(input);
 
-        const selectedItem = await vscode.window.showQuickPick(suggestions, {
-          placeHolder: '選択してください',
-        });
+      // 命名候補からユーザが選択する
+      const selectedSuggestion = await vscode.window.showQuickPick(
+        suggestions,
+        { placeHolder: '命名候補を選択してください' }
+      );
+      if (!selectedSuggestion) {
+        return;
+      }
 
-        if (!selectedItem) {
-          return;
-        }
+      // ケースを選択する
+      const cases = [
+        'キャメルケース',
+        'スネークケース',
+        'パスカルケース',
+        'ケバブケース',
+      ];
+      const selectedCase = await vscode.window.showQuickPick(cases, {
+        placeHolder: '使用するケースを選択してください',
+      });
+      if (!selectedCase) {
+        return;
+      }
 
-        const activeEditor = vscode.window.activeTextEditor;
-
-        if (!activeEditor) {
-          vscode.window.showErrorMessage(
-            'テキストエディタが開かれていません。'
-          );
-          return;
-        }
-
-        activeEditor.edit((editBuilder) => {
-          const currentPosition = activeEditor.selection.active;
-          editBuilder.insert(currentPosition, selectedItem);
-        });
-      } catch (error) {
-        vscode.window.showErrorMessage('命名候補の取得に失敗しました。');
+      // ユーザが選択したケースに合わせてテキストエディタに挿入する
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const formattedSuggestion = formatSuggestion(
+          selectedSuggestion,
+          selectedCase
+        );
+        editor.insertSnippet(
+          new vscode.SnippetString(formattedSuggestion),
+          editor.selection.active
+        );
       }
     }
   );
@@ -79,5 +58,17 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+function formatSuggestion(suggestion: string, caseType: string): string {
+  switch (caseType) {
+    case 'キャメルケース':
+      return _.camelCase(suggestion);
+    case 'スネークケース':
+      return _.snakeCase(suggestion);
+    case 'パスカルケース':
+      return _.upperFirst(_.camelCase(suggestion));
+    case 'ケバブケース':
+      return _.kebabCase(suggestion);
+    default:
+      return suggestion;
+  }
+}
